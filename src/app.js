@@ -1,7 +1,11 @@
 var http = require('http');
 var fs = require('fs');
+var readline = require('readline');
 
-// Chargement du fichier index.html affiché au client
+// the path to the data file
+var dataPath = './data/data.json';
+
+// Loading of the index.html file shown to the client
 var server = http.createServer(function(req, res) {
     fs.readFile('./src/index.html', 'utf-8', function(error, content) {
         res.writeHead(200, {"Content-Type": "text/html"});
@@ -9,11 +13,9 @@ var server = http.createServer(function(req, res) {
     });
 });
 
-var lll = 1;
-// Fonction calculer
-function next () {
-    lll++;
-    return lll;
+// The calculation we do with the data
+function calculate (data) {
+    return data;
 }
 
 
@@ -21,17 +23,24 @@ function next () {
 var io = require('socket.io').listen(server);
 
 io.sockets.on('connection', function (socket) {
-    
-    socket.emit('newCalcul', 1);
 
-    // simulation des calculs
+    // we read the data document
+    let rl = readline.createInterface({
+        input: fs.createReadStream(dataPath)
+    });
+    
+    // we read a line and do calculations on it
+    rl.on ('line', function(line) {
+        rl.pause();
+        io.sockets.emit('newCalcul', calculate(line));
+    });
+
+    // when the tracking record is shown on screen, we start to analyse the next line
     socket.on('done', function () {
-        io.sockets.emit('newCalcul', next());
+        rl.resume();
     })
     
 });
-
-
 
 
 server.listen(8080);

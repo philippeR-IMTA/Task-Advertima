@@ -13,13 +13,59 @@ var server = http.createServer(function(req, res) {
     });
 });
 
-// The calculation we do with the data
+
+// **************** Calculations ****************
+var nb_tracking_finished = 0;
+var average_tracking_time = 0;
+var trackings_in_progress = [];
+
+
+// Processing a detection
 function calculate (data) {
+    let detection = JSON.parse(data);
+    let persons_detected = [];
+    detection.forEach(element => {
+        trackingUpdate (element);
+        persons_detected.push(element[0]);
+    });
+
+    let i = trackings_in_progress.findIndex(t => (! persons_detected.includes(t.personId)));
+    while (i != -1) {
+        finishedTracking (i);
+        i = trackings_in_progress.findIndex(t => (! persons_detected.includes(t.personId)));
+    }
+
     return data;
 }
 
+// Processing a detection of a person
+function trackingUpdate (element) {
+    let index = trackings_in_progress.findIndex(t => (t.personId == element[0]));
+    if (index == -1) { // if this is the first detection of the person, we create a new tracking record
+        index = trackings_in_progress.push({
+            personId:element[0],
+            trackingId:("tracking_number_" + (trackings_in_progress.length + nb_tracking_finished)),
+            startLocalTimestamp:element[1].local_timestamp,
+            coordinates:element[1].coordinates
+        }) - 1;
+    }
+    // Update of the tracking record
+    trackings_in_progress[index].endLocalTimestamp = element[1].local_timestamp;
+    trackings_in_progress[index].totalViewTime = trackings_in_progress[index].endLocalTimestamp - trackings_in_progress[index].startLocalTimestamp;
+    trackings_in_progress[index].age = element[1].rolling_expected_values.age;
+    trackings_in_progress[index].gender = element[1].rolling_expected_values.gender;
+}
 
-// Chargement de socket.io
+// the tracking at the specified index is finished
+function finishedTracking (index) {
+    let tracking = trackings_in_progress.splice (index, 1);
+    average_tracking_time = (average_tracking_time*nb_tracking_finished + tracking[0].totalViewTime) / (nb_tracking_finished + 1);
+    nb_tracking_finished ++
+}
+
+
+
+// **************** Socket ****************
 var io = require('socket.io').listen(server);
 
 io.sockets.on('connection', function (socket) {

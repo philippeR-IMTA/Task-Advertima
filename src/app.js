@@ -4,8 +4,8 @@ var fs = require('fs');
 var readline = require('readline');
 
 
-const DATAPATH = './data/data.json';
-const SLEEPTIME = 20
+const DATAPATH = './data/data.json'; //path to the json datafile
+const SLEEPTIME = 20; //time between the events in ms
 
 // Loading of the index.html file shown to the client
 var server = http.createServer(function(req, res) {
@@ -96,6 +96,8 @@ rl.on ('line', function(line) {
 
 // the socket part
 io.sockets.on('connection', function (socket) {
+
+    socket.emit('metrics', nb_tracking_finished, average_tracking_time)
     
     // a tracking record is finished
     emitTracking.on('trackingFinished', function(tracking) {

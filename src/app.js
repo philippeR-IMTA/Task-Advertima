@@ -1,4 +1,5 @@
 var http = require('http');
+var url = require('url');
 var fs = require('fs');
 var readline = require('readline');
 
@@ -8,10 +9,19 @@ const SLEEPTIME = 20
 
 // Loading of the index.html file shown to the client
 var server = http.createServer(function(req, res) {
-    fs.readFile('./src/index.html', 'utf-8', function(error, content) {
-        res.writeHead(200, {"Content-Type": "text/html"});
-        res.end(content);
-    });
+    var page = url.parse(req.url).pathname;
+    if (page == '/metrics') {
+        fs.readFile('./src/metrics.html', 'utf-8', function(error, content) {
+            res.writeHead(200, {"Content-Type": "text/html"});
+            res.end(content);
+        });
+    }
+    else {
+        fs.readFile('./src/index.html', 'utf-8', function(error, content) {
+            res.writeHead(200, {"Content-Type": "text/html"});
+            res.end(content);
+        });
+    }
 });
 
 
@@ -90,6 +100,7 @@ io.sockets.on('connection', function (socket) {
     // a tracking record is finished
     emitTracking.on('trackingFinished', function(tracking) {
         socket.emit('newCalcul', tracking);
+        socket.emit('metrics', nb_tracking_finished, average_tracking_time)
     })
     
 });

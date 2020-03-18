@@ -12,9 +12,7 @@ Node.js
 
 Go into the headfile 'task Advertima' and run the following command :
 
-'''
-node src/app.js
-'''
+    node src/app.js
 
 then the server will run on http://localhost:8080
 
@@ -28,3 +26,7 @@ The file is read by the server and an event is emited when a tracking record is 
 Concerning the tracking records composition, I choose the 'coordinates' object to be the first coordinates where the person was detected. I also had to choose the trackingId value so I choose to name it 'tracking_number_' plus a number corresponding of the appearance of the tracking record since the server started.
 
 In the html home page, I choose to display the incoming tracking records as their json equivalent directly as a text. Each new record is added as a new line at the end of the text.
+
+
+## Autor
+Philippe Rateau

@@ -8,19 +8,22 @@
     <body>
         <h1>Tracking records</h1>
 
+        <p>link to the /metric page <a href="/metric">here</a></p>
+        
         <p id="result">Waiting for a result</p>
 
         <script src="/socket.io/socket.io.js"></script>
         <script>
             var socket = io.connect('http://localhost:8080');
 
-            // we recieve a new value, we write it and we resume the calculation
+            // we recieve a new value, we write it at the end of the list
             socket.on('newCalcul', function(result) {
                 var paragraphe = document.getElementById ("result");
                 
-                paragraphe.textContent = result
-
-                socket.emit('done');
+                if (paragraphe.textContent == "Waiting for a result") {
+                    paragraphe.textContent = "";
+                }
+                paragraphe.textContent += result + "\n"
             })
 
         </script>

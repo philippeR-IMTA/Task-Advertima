@@ -2,8 +2,9 @@ var http = require('http');
 var fs = require('fs');
 var readline = require('readline');
 
-// the path to the data file
-var dataPath = './data/data.json';
+
+const DATAPATH = './data/data.json';
+const SLEEPTIME = 20
 
 // Loading of the index.html file shown to the client
 var server = http.createServer(function(req, res) {
@@ -14,19 +15,22 @@ var server = http.createServer(function(req, res) {
 });
 
 
-// **************** Calculations ****************
+// ******************************** Data processing ********************************
+var EventEmitter = require('events').EventEmitter;
+var emitTracking = new EventEmitter();
+
 var nb_tracking_finished = 0;
 var average_tracking_time = 0;
 var trackings_in_progress = [];
 
 
-// Processing a detection
+// Process a data line
 function calculate (data) {
-    let detection = JSON.parse(data);
+    let detections = JSON.parse(data);
     let persons_detected = [];
-    detection.forEach(element => {
-        trackingUpdate (element);
-        persons_detected.push(element[0]);
+    detections.forEach(detection => {
+        trackingUpdate (detection);
+        persons_detected.push(detection[0]);
     });
 
     let i = trackings_in_progress.findIndex(t => (! persons_detected.includes(t.personId)));
@@ -34,59 +38,75 @@ function calculate (data) {
         finishedTracking (i);
         i = trackings_in_progress.findIndex(t => (! persons_detected.includes(t.personId)));
     }
-
-    return data;
 }
 
-// Processing a detection of a person
-function trackingUpdate (element) {
-    let index = trackings_in_progress.findIndex(t => (t.personId == element[0]));
+// Process a detection
+function trackingUpdate (detection) {
+    let index = trackings_in_progress.findIndex(t => (t.personId == detection[0]));
     if (index == -1) { // if this is the first detection of the person, we create a new tracking record
         index = trackings_in_progress.push({
-            personId:element[0],
+            personId:detection[0],
             trackingId:("tracking_number_" + (trackings_in_progress.length + nb_tracking_finished)),
-            startLocalTimestamp:element[1].local_timestamp,
-            coordinates:element[1].coordinates
+            startLocalTimestamp:detection[1].local_timestamp,
+            coordinates:detection[1].coordinates
         }) - 1;
     }
     // Update of the tracking record
-    trackings_in_progress[index].endLocalTimestamp = element[1].local_timestamp;
+    trackings_in_progress[index].endLocalTimestamp = detection[1].local_timestamp;
     trackings_in_progress[index].totalViewTime = trackings_in_progress[index].endLocalTimestamp - trackings_in_progress[index].startLocalTimestamp;
-    trackings_in_progress[index].age = element[1].rolling_expected_values.age;
-    trackings_in_progress[index].gender = element[1].rolling_expected_values.gender;
+    trackings_in_progress[index].age = detection[1].rolling_expected_values.age;
+    trackings_in_progress[index].gender = detection[1].rolling_expected_values.gender;
 }
 
-// the tracking at the specified index is finished
+// when the tracking is finished
 function finishedTracking (index) {
     let tracking = trackings_in_progress.splice (index, 1);
     average_tracking_time = (average_tracking_time*nb_tracking_finished + tracking[0].totalViewTime) / (nb_tracking_finished + 1);
     nb_tracking_finished ++
+    // an event is emited
+    emitTracking.emit ('trackingFinished', JSON.stringify(tracking[0]));
 }
 
 
 
-// **************** Socket ****************
+// ******************************** Socket and document reading ********************************
 var io = require('socket.io').listen(server);
 
+
+// read the data document
+const rl = readline.createInterface({
+    input: fs.createReadStream(DATAPATH)
+});
+
+// read a line
+rl.on ('line', function(line) {
+    sleep (SLEEPTIME);
+    calculate(line)
+});
+
+// the socket part
 io.sockets.on('connection', function (socket) {
-
-    // we read the data document
-    let rl = readline.createInterface({
-        input: fs.createReadStream(dataPath)
-    });
     
-    // we read a line and do calculations on it
-    rl.on ('line', function(line) {
-        rl.pause();
-        io.sockets.emit('newCalcul', calculate(line));
-    });
-
-    // when the tracking record is shown on screen, we start to analyse the next line
-    socket.on('done', function () {
-        rl.resume();
+    // a tracking record is finished
+    emitTracking.on('trackingFinished', function(tracking) {
+        socket.emit('newCalcul', tracking);
     })
     
 });
+
+// ******************************** Utils ********************************
+
+function sleep(milliseconds) {
+    var start = new Date().getTime();
+    for (var i = 0; i < 1e7; i++) {
+      if ((new Date().getTime() - start) > milliseconds){
+        break;
+      }
+    }
+  }
+
+
+
 
 
 server.listen(8080);
